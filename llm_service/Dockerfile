@@ -6,7 +6,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-# Copiar el código y el archivo de clave
-COPY service.py .
-COPY ../key.env .
-CMD ["python", "service.py"]
+# Copiar el código para Ollama (no necesitamos key.env)
+COPY service_ollama.py .
+CMD ["python", "service_ollama.py"]

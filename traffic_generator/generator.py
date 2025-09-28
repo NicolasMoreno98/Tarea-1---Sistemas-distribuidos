@@ -108,16 +108,23 @@ def main():
     
     print("\nEnviando requests secuencialmente para evitar rate limiting...")
     
-    # Procesar requests una por una con delay para evitar TooManyRequests
+    # Procesar requests una por una con delay para evitar sobrecarga
+    print(f"\n{'='*60}")
+    print(f"🚀 INICIANDO EXPERIMENTO OLLAMA - {NUM_REQUESTS:,} REQUESTS")
+    print(f"{'='*60}")
+    
     for i, question in enumerate(selected_questions, 1):
-        print(f"\nProcesando request {i}/{NUM_REQUESTS} - ID: {question['id']}")
+        if i % 10 != 1:  # Solo mostrar detalles cada 10 o la primera
+            print(f"[{i:4d}/{NUM_REQUESTS}] Procesando ID: {question['id']}", end=" ")
+        else:
+            print(f"\n🔥 Request {i}/{NUM_REQUESTS} - ID: {question['id']}")
+            print(f"❓ Pregunta: {question['question'][:80]}...")
         
-        # Delay mínimo entre requests - respetar 1000 RPM del Tier 1
+        # Delay mínimo entre requests para no sobrecargar
         if i > 1:
-            # 1000 requests per minute = 0.06 segundos entre requests mínimo
-            # Usamos 0.1 segundos para ser conservador
-            base_delay = 0.1  # 0.1 segundos para respetar rate limit
-            print(f"Esperando {base_delay} segundos para respetar rate limit (1000 RPM)...")
+            base_delay = 0.1  # 0.1 segundos entre requests
+            if i % 10 == 1:
+                print(f"⏳ Delay: {base_delay}s para evitar sobrecarga...")
             time.sleep(base_delay)
         
         # Enviar request con reintentos hasta obtener respuesta
@@ -132,23 +139,38 @@ def main():
             # Contar cache hits vs LLM calls
             if result['source'] == 'cache':
                 cache_hits += 1
-                print(f"  ✓ Cache hit obtenido ({response_time:.1f}s)")
+                if i % 10 != 1:
+                    print(f"💾 ({response_time:.1f}s, score: {result['score']:.3f})")
+                else:
+                    print(f"  💾 Cache hit obtenido ({response_time:.1f}s) - Score: {result['score']:.3f}")
             elif result['source'] == 'llm':
                 llm_calls += 1
-                print(f"  ✓ LLM call completado ({response_time:.1f}s)")
-                # Delay muy pequeño después de LLM calls en Tier 1
-                additional_delay = 0.2  # 0.2 segundos después de cada LLM call
-                print(f"  LLM call realizada, esperando {additional_delay} segundos adicionales...")
+                if i % 10 != 1:
+                    print(f"🤖 ({response_time:.1f}s, score: {result['score']:.3f})")
+                else:
+                    print(f"  🤖 Ollama respondió ({response_time:.1f}s) - Score: {result['score']:.3f}")
+                    # Verificar qué clave contiene la respuesta
+                    answer_text = result.get('answer') or result.get('response') or result.get('llm_response', 'N/A')
+                    if isinstance(answer_text, str) and len(answer_text) > 100:
+                        print(f"  💬 Respuesta: {answer_text[:100]}...")
+                    else:
+                        print(f"  💬 Respuesta: {answer_text}")
+                # Delay después de LLM calls
+                additional_delay = 0.2
                 time.sleep(additional_delay)
             
-            # Mostrar progreso cada 500 requests
-            if i % 500 == 0:
+            # Mostrar progreso cada 10 requests (más frecuente)
+            if i % 10 == 0:
                 rate = cache_hits / len(results) * 100 if results else 0
-                avg_time = sum(end_time - start_time for _ in range(len(results))) / len(results) if results else 0
-                print(f"\n--- Progreso: {i}/{NUM_REQUESTS} ---")
-                print(f"Exitosas: {len(results)}, Cache hits: {cache_hits}, LLM calls: {llm_calls}")
-                print(f"Cache hit rate actual: {rate:.1f}%")
-                print(f"Tiempo promedio de respuesta: {avg_time:.1f}s")
+                avg_score = sum(r['score'] for r in results) / len(results) if results else 0
+                progress_percent = (i / NUM_REQUESTS) * 100
+                estimated_remaining = ((end_time - start_time) * (NUM_REQUESTS - i)) / 60  # en minutos
+                
+                print(f"\n🔄 PROGRESO: {i}/{NUM_REQUESTS} ({progress_percent:.1f}%)")
+                print(f"📊 Exitosas: {len(results)} | Cache hits: {cache_hits} | LLM calls: {llm_calls}")
+                print(f"📈 Cache hit rate: {rate:.1f}% | Score promedio: {avg_score:.3f}")
+                print(f"⏱️  Tiempo estimado restante: {estimated_remaining:.1f} minutos")
+                print("─" * 60)
         else:
             print(f"  ✗ Request falló definitivamente después de todos los reintentos")
             # Aún así, esperamos antes de continuar - más tiempo por el fallo
@@ -177,15 +199,29 @@ def main():
         json.dump(output_data, f, ensure_ascii=False, indent=2)
     
     # Mostrar estadísticas finales
-    print("\n=== Estadísticas Finales ===")
-    print(f"Total requests: {NUM_REQUESTS}")
-    print(f"Requests exitosas: {len(results)}")
-    print(f"Cache hits: {cache_hits}")
-    print(f"LLM calls: {llm_calls}")
-    print(f"Cache hit rate: {cache_hits / len(results) * 100:.2f}%" if results else "0%")
-    print(f"Preguntas únicas: {len(unique_ids)}")
-    print(f"Promedio de repeticiones por pregunta: {NUM_REQUESTS / len(unique_ids):.2f}")
-    print(f"Resultados guardados en: {OUTPUT_FILE}")
+    print(f"\n{'='*60}")
+    print("🎉 EXPERIMENTO OLLAMA COMPLETADO")
+    print(f"{'='*60}")
+    
+    if results:
+        avg_score = sum(r['score'] for r in results) / len(results)
+        max_score = max(r['score'] for r in results)
+        min_score = min(r['score'] for r in results)
+        
+        print(f"📊 ESTADÍSTICAS FINALES:")
+        print(f"  • Total requests: {NUM_REQUESTS:,}")
+        print(f"  • Requests exitosas: {len(results):,} ({len(results)/NUM_REQUESTS*100:.1f}%)")
+        print(f"  • Cache hits: {cache_hits:,} ({cache_hits/len(results)*100:.1f}%)")
+        print(f"  • LLM calls: {llm_calls:,} ({llm_calls/len(results)*100:.1f}%)")
+        print(f"\n📈 SCORES:")
+        print(f"  • Score promedio: {avg_score:.4f}")
+        print(f"  • Score máximo: {max_score:.4f}")
+        print(f"  • Score mínimo: {min_score:.4f}")
+        print(f"\n💾 Resultados guardados en: {OUTPUT_FILE}")
+    else:
+        print("❌ No se procesaron requests exitosas")
+    
+    print(f"{'='*60}")
 
 if __name__ == "__main__":
     main()
