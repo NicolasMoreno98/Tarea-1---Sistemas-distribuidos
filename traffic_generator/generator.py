@@ -13,7 +13,6 @@ NUM_TOTAL_QUESTIONS = 20000
 NUM_REQUESTS = 10
 
 def load_questions():
-    """Carga las primeras 20,000 preguntas del CSV"""
     try:
         print("Cargando dataset...")
         df = pd.read_csv(CSV_FILE, nrows=NUM_TOTAL_QUESTIONS)
@@ -35,7 +34,6 @@ def load_questions():
         return []
 
 def send_request(question_data, max_retries=2):
-    """Envía una request al servicio LLM con reintentos"""
     for attempt in range(max_retries):
         try:
             print(f"    Intento {attempt + 1}/{max_retries}")
@@ -75,9 +73,8 @@ def send_request(question_data, max_retries=2):
     return None
 
 def main():
-    """Función principal"""
-    print("=== Yahoo LLM Traffic Generator ===")
-    
+    print("Yahoo LLM Traffic Generator")
+    print()
     questions = load_questions()
     if not questions:
         print("No se pudieron cargar las preguntas")
@@ -96,9 +93,9 @@ def main():
     cache_hits = 0
     llm_calls = 0
     
-    print("\nEnviando requests secuencialmente para evitar rate limiting...")
+    print("Enviando requests secuencialmente para evitar rate limiting...")
     
-    print(f"\n{'='*60}")
+    print(f"{'='*60}")
     print(f"INICIANDO EXPERIMENTO OLLAMA - {NUM_REQUESTS:,} REQUESTS")
     print(f"{'='*60}")
     
@@ -106,7 +103,7 @@ def main():
         if i % 10 != 1:
             print(f"[{i:4d}/{NUM_REQUESTS}] Procesando ID: {question['id']}", end=" ")
         else:
-            print(f"\nRequest {i}/{NUM_REQUESTS} - ID: {question['id']}")
+            print(f"Request {i}/{NUM_REQUESTS} - ID: {question['id']}")
             print(f"Pregunta: {question['question'][:80]}...")
         
         if i > 1:
@@ -151,19 +148,20 @@ def main():
                 progress_percent = (i / NUM_REQUESTS) * 100
                 estimated_remaining = ((end_time - start_time) * (NUM_REQUESTS - i)) / 60  # en minutos
                 
-                print(f"\nPROGRESO: {i}/{NUM_REQUESTS} ({progress_percent:.1f}%)")
+                print(f"PROGRESO: {i}/{NUM_REQUESTS} ({progress_percent:.1f}%)")
                 print(f"Exitosas: {len(results)} | Cache hits: {cache_hits} | LLM calls: {llm_calls}")
                 print(f"Cache hit rate: {rate:.1f}% | Score promedio: {avg_score:.3f}")
                 print(f"Tiempo estimado restante: {estimated_remaining:.1f} minutos")
                 print("─" * 60)
+                print()
         else:
             print(f"  ERROR: Request falló definitivamente después de todos los reintentos")
-            # Aún así, esperamos antes de continuar - más tiempo por el fallo
+            print()
             print(f"  Esperando 30 segundos antes de continuar...")
             time.sleep(30)
     
     # Guardar resultados
-    print(f"\nGuardando {len(results)} resultados en {OUTPUT_FILE}...")
+    print(f"Guardando {len(results)} resultados en {OUTPUT_FILE}...")
     
     summary = {
         'total_requests': NUM_REQUESTS,
@@ -184,7 +182,7 @@ def main():
         json.dump(output_data, f, ensure_ascii=False, indent=2)
     
     # Mostrar estadísticas finales
-    print(f"\n{'='*60}")
+    print(f"{'='*60}")
     print("EXPERIMENTO OLLAMA COMPLETADO")
     print(f"{'='*60}")
     
@@ -198,11 +196,13 @@ def main():
         print(f"  • Requests exitosas: {len(results):,} ({len(results)/NUM_REQUESTS*100:.1f}%)")
         print(f"  • Cache hits: {cache_hits:,} ({cache_hits/len(results)*100:.1f}%)")
         print(f"  • LLM calls: {llm_calls:,} ({llm_calls/len(results)*100:.1f}%)")
-        print(f"\nSCORES:")
+        print()
+        print(f"SCORES:")
         print(f"  • Score promedio: {avg_score:.4f}")
         print(f"  • Score máximo: {max_score:.4f}")
         print(f"  • Score mínimo: {min_score:.4f}")
-        print(f"\nResultados guardados en: {OUTPUT_FILE}")
+        print(f"Resultados guardados en: {OUTPUT_FILE}")
+        print()
     else:
         print("ERROR: No se procesaron requests exitosas")
     
