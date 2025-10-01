@@ -11,7 +11,7 @@ CSV_FILE = "/data/train.csv"
 OUTPUT_FILE = "/data/response.json"
 NUM_TOTAL_QUESTIONS = 20000  # Primeras 20k preguntas del dataset
 # Configuration
-NUM_REQUESTS = 10000  # Number of random requests to make
+NUM_REQUESTS = 10  # Number of random requests to make (TEST MODE)
 QUESTIONS_FILE = "/data/train.csv"
 
 def load_questions():
@@ -110,21 +110,21 @@ def main():
     
     # Procesar requests una por una con delay para evitar sobrecarga
     print(f"\n{'='*60}")
-    print(f"🚀 INICIANDO EXPERIMENTO OLLAMA - {NUM_REQUESTS:,} REQUESTS")
+    print(f"INICIANDO EXPERIMENTO OLLAMA - {NUM_REQUESTS:,} REQUESTS")
     print(f"{'='*60}")
     
     for i, question in enumerate(selected_questions, 1):
         if i % 10 != 1:  # Solo mostrar detalles cada 10 o la primera
             print(f"[{i:4d}/{NUM_REQUESTS}] Procesando ID: {question['id']}", end=" ")
         else:
-            print(f"\n🔥 Request {i}/{NUM_REQUESTS} - ID: {question['id']}")
-            print(f"❓ Pregunta: {question['question'][:80]}...")
+            print(f"\nRequest {i}/{NUM_REQUESTS} - ID: {question['id']}")
+            print(f"Pregunta: {question['question'][:80]}...")
         
         # Delay mínimo entre requests para no sobrecargar
         if i > 1:
             base_delay = 0.1  # 0.1 segundos entre requests
             if i % 10 == 1:
-                print(f"⏳ Delay: {base_delay}s para evitar sobrecarga...")
+                print(f"Delay: {base_delay}s para evitar sobrecarga...")
             time.sleep(base_delay)
         
         # Enviar request con reintentos hasta obtener respuesta
@@ -140,21 +140,21 @@ def main():
             if result['source'] == 'cache':
                 cache_hits += 1
                 if i % 10 != 1:
-                    print(f"💾 ({response_time:.1f}s, score: {result['score']:.3f})")
+                    print(f"CACHE ({response_time:.1f}s, score: {result['score']:.3f})")
                 else:
-                    print(f"  💾 Cache hit obtenido ({response_time:.1f}s) - Score: {result['score']:.3f}")
+                    print(f"  Cache hit obtenido ({response_time:.1f}s) - Score: {result['score']:.3f}")
             elif result['source'] == 'llm':
                 llm_calls += 1
                 if i % 10 != 1:
-                    print(f"🤖 ({response_time:.1f}s, score: {result['score']:.3f})")
+                    print(f"LLM ({response_time:.1f}s, score: {result['score']:.3f})")
                 else:
-                    print(f"  🤖 Ollama respondió ({response_time:.1f}s) - Score: {result['score']:.3f}")
+                    print(f"  Ollama respondió ({response_time:.1f}s) - Score: {result['score']:.3f}")
                     # Verificar qué clave contiene la respuesta
                     answer_text = result.get('answer') or result.get('response') or result.get('llm_response', 'N/A')
                     if isinstance(answer_text, str) and len(answer_text) > 100:
-                        print(f"  💬 Respuesta: {answer_text[:100]}...")
+                        print(f"  Respuesta: {answer_text[:100]}...")
                     else:
-                        print(f"  💬 Respuesta: {answer_text}")
+                        print(f"  Respuesta: {answer_text}")
                 # Delay después de LLM calls
                 additional_delay = 0.2
                 time.sleep(additional_delay)
@@ -166,13 +166,13 @@ def main():
                 progress_percent = (i / NUM_REQUESTS) * 100
                 estimated_remaining = ((end_time - start_time) * (NUM_REQUESTS - i)) / 60  # en minutos
                 
-                print(f"\n🔄 PROGRESO: {i}/{NUM_REQUESTS} ({progress_percent:.1f}%)")
-                print(f"📊 Exitosas: {len(results)} | Cache hits: {cache_hits} | LLM calls: {llm_calls}")
-                print(f"📈 Cache hit rate: {rate:.1f}% | Score promedio: {avg_score:.3f}")
-                print(f"⏱️  Tiempo estimado restante: {estimated_remaining:.1f} minutos")
+                print(f"\nPROGRESO: {i}/{NUM_REQUESTS} ({progress_percent:.1f}%)")
+                print(f"Exitosas: {len(results)} | Cache hits: {cache_hits} | LLM calls: {llm_calls}")
+                print(f"Cache hit rate: {rate:.1f}% | Score promedio: {avg_score:.3f}")
+                print(f"Tiempo estimado restante: {estimated_remaining:.1f} minutos")
                 print("─" * 60)
         else:
-            print(f"  ✗ Request falló definitivamente después de todos los reintentos")
+            print(f"  ERROR: Request falló definitivamente después de todos los reintentos")
             # Aún así, esperamos antes de continuar - más tiempo por el fallo
             print(f"  Esperando 30 segundos antes de continuar...")
             time.sleep(30)
@@ -200,7 +200,7 @@ def main():
     
     # Mostrar estadísticas finales
     print(f"\n{'='*60}")
-    print("🎉 EXPERIMENTO OLLAMA COMPLETADO")
+    print("EXPERIMENTO OLLAMA COMPLETADO")
     print(f"{'='*60}")
     
     if results:
@@ -208,18 +208,18 @@ def main():
         max_score = max(r['score'] for r in results)
         min_score = min(r['score'] for r in results)
         
-        print(f"📊 ESTADÍSTICAS FINALES:")
+        print(f"ESTADÍSTICAS FINALES:")
         print(f"  • Total requests: {NUM_REQUESTS:,}")
         print(f"  • Requests exitosas: {len(results):,} ({len(results)/NUM_REQUESTS*100:.1f}%)")
         print(f"  • Cache hits: {cache_hits:,} ({cache_hits/len(results)*100:.1f}%)")
         print(f"  • LLM calls: {llm_calls:,} ({llm_calls/len(results)*100:.1f}%)")
-        print(f"\n📈 SCORES:")
+        print(f"\nSCORES:")
         print(f"  • Score promedio: {avg_score:.4f}")
         print(f"  • Score máximo: {max_score:.4f}")
         print(f"  • Score mínimo: {min_score:.4f}")
-        print(f"\n💾 Resultados guardados en: {OUTPUT_FILE}")
+        print(f"\nResultados guardados en: {OUTPUT_FILE}")
     else:
-        print("❌ No se procesaron requests exitosas")
+        print("ERROR: No se procesaron requests exitosas")
     
     print(f"{'='*60}")
 

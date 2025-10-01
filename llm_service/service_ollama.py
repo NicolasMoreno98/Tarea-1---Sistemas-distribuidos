@@ -16,7 +16,7 @@ app = Flask(__name__)
 
 # Configuración de Ollama (local)
 OLLAMA_URL = "http://host.docker.internal:11434"  # URL para acceder a Ollama desde Docker
-OLLAMA_MODEL = "llama2:7b-chat-q4_0"  # Modelo optimizado para menor uso de recursos
+OLLAMA_MODEL = "tinyllama:latest"  # Modelo ultrarrápido disponible localmente
 
 # Configuración de Redis
 redis_client = redis.Redis(host='redis', port=6379, decode_responses=True)

@@ -1,11 +1,7 @@
 version: '3.8'
 
 services:
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-
+  # Base de datos PostgreSQL (sin cambios)
   postgres:
     image: postgres:13-alpine
     environment:
@@ -15,26 +11,49 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
       - ./postgres/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d yahoo_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  traffic-generator:
-    build: ./traffic_generator
-    volumes:
-      - ./dataset:/data
-    depends_on:
-      - llm-service
+  # Cache Redis (sin cambios)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+  # Servicio LLM modificado para Ollama
   llm-service:
     build: ./llm_service
     ports:
       - "5000:5000"
-    environment:
-      - GOOGLE_API_KEY=AIzaSyAQ8EoZk_R9zOYq3FiT2Sei3Y6YgfV6SO0
     depends_on:
-      - redis
-      - postgres
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - OLLAMA_MODEL=tinyllama  # Modelo ultra-rápido para eliminar timeouts
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Para acceder a Ollama local
 
-volumes:
-  redis_data:
-  postgres_data:
+  # Traffic generator (sin cambios en la lógica)
+  traffic-generator:
+    build: ./traffic_generator
+    depends_on:
+      - llm-service
+    volumes:
+      - ./dataset:/data
+    environment:
+      - API_URL=http://llm-service:5000/process
+
+networks:
+  default:
+    name: yahoo_llm_ollama_network
