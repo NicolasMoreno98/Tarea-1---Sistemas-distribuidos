@@ -5,7 +5,6 @@ import random
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Configuración
 API_URL = "http://llm-service:5000/process"
 CSV_FILE = "/data/train.csv"
 OUTPUT_FILE = "/data/response.json"
