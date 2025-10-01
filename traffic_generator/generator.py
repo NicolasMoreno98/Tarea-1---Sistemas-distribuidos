@@ -9,26 +9,21 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 API_URL = "http://llm-service:5000/process"
 CSV_FILE = "/data/train.csv"
 OUTPUT_FILE = "/data/response.json"
-NUM_TOTAL_QUESTIONS = 20000  # Primeras 20k preguntas del dataset
-# Configuration
-NUM_REQUESTS = 10  # Number of random requests to make (TEST MODE)
-QUESTIONS_FILE = "/data/train.csv"
+NUM_TOTAL_QUESTIONS = 20000
+NUM_REQUESTS = 10
 
 def load_questions():
     """Carga las primeras 20,000 preguntas del CSV"""
     try:
         print("Cargando dataset...")
-        # Leer solo las primeras 20,000 filas
         df = pd.read_csv(CSV_FILE, nrows=NUM_TOTAL_QUESTIONS)
         
-        # Formato CSV: class_index, question_title, question_content, best_answer
-        # Usaremos el índice de fila + 1 como ID único para tener 20k IDs diferentes
         questions = []
         for idx, row in df.iterrows():
             questions.append({
-                'id': str(idx + 1),  # Usar índice de fila + 1 como ID único (1-20000)
-                'question': str(row.iloc[1]),  # Segunda columna es el título de la pregunta
-                'best_answer': str(row.iloc[3]) if pd.notna(row.iloc[3]) else ""  # Cuarta columna es la mejor respuesta
+                'id': str(idx + 1),
+                'question': str(row.iloc[1]),
+                'best_answer': str(row.iloc[3]) if pd.notna(row.iloc[3]) else ""
             })
         
         print(f"Cargadas {len(questions)} preguntas")
@@ -40,11 +35,10 @@ def load_questions():
         return []
 
 def send_request(question_data, max_retries=2):
-    """Envía una request al servicio LLM con reintentos hasta obtener respuesta"""
+    """Envía una request al servicio LLM con reintentos"""
     for attempt in range(max_retries):
         try:
             print(f"    Intento {attempt + 1}/{max_retries}")
-            # Timeout ajustado para Gemini 2.5 Flash
             response = requests.post(API_URL, json=question_data, timeout=60)
             
             if response.status_code == 200:
@@ -54,13 +48,13 @@ def send_request(question_data, max_retries=2):
                     'question': question_data['question'],
                     'human_answer': question_data['best_answer'],
                     'llm_answer': result.get('answer', ''),
-                    'source': result.get('source', 'unknown'),  # 'cache' o 'llm'
+                    'source': result.get('source', 'unknown'),
                     'score': result.get('score', 0.0),
                     'timestamp': time.time()
                 }
-            elif response.status_code == 429:  # TooManyRequests
-                print(f"    Rate limit alcanzado (429), esperando...")
-                wait_time = 60  # Esperar 1 minuto por rate limit
+            elif response.status_code == 429:
+                print(f"    Rate limit alcanzado, esperando...")
+                wait_time = 60
                 print(f"    Esperando {wait_time} segundos por rate limit...")
                 time.sleep(wait_time)
                 continue
@@ -72,9 +66,8 @@ def send_request(question_data, max_retries=2):
         except Exception as e:
             print(f"    Excepción: {e}")
         
-        # Backoff más moderado
         if attempt < max_retries - 1:
-            wait_time = 10 + (attempt * 5)  # 10, 15 segundos
+            wait_time = 10 + (attempt * 5)
             print(f"    Esperando {wait_time} segundos antes del siguiente intento...")
             time.sleep(wait_time)
     
@@ -85,17 +78,14 @@ def main():
     """Función principal"""
     print("=== Yahoo LLM Traffic Generator ===")
     
-    # Cargar preguntas
     questions = load_questions()
     if not questions:
         print("No se pudieron cargar las preguntas")
         return
     
-    # Seleccionar 10,000 preguntas de manera aleatoria con repetición
     print(f"Seleccionando {NUM_REQUESTS} preguntas aleatorias con repetición...")
     selected_questions = random.choices(questions, k=NUM_REQUESTS)
     
-    # Mostrar estadísticas de repetición
     unique_ids = set(q['id'] for q in selected_questions)
     print(f"Preguntas únicas seleccionadas: {len(unique_ids)}")
     print(f"Repeticiones: {NUM_REQUESTS - len(unique_ids)}")
@@ -108,26 +98,23 @@ def main():
     
     print("\nEnviando requests secuencialmente para evitar rate limiting...")
     
-    # Procesar requests una por una con delay para evitar sobrecarga
     print(f"\n{'='*60}")
     print(f"INICIANDO EXPERIMENTO OLLAMA - {NUM_REQUESTS:,} REQUESTS")
     print(f"{'='*60}")
     
     for i, question in enumerate(selected_questions, 1):
-        if i % 10 != 1:  # Solo mostrar detalles cada 10 o la primera
+        if i % 10 != 1:
             print(f"[{i:4d}/{NUM_REQUESTS}] Procesando ID: {question['id']}", end=" ")
         else:
             print(f"\nRequest {i}/{NUM_REQUESTS} - ID: {question['id']}")
             print(f"Pregunta: {question['question'][:80]}...")
         
-        # Delay mínimo entre requests para no sobrecargar
         if i > 1:
-            base_delay = 0.1  # 0.1 segundos entre requests
+            base_delay = 0.1
             if i % 10 == 1:
                 print(f"Delay: {base_delay}s para evitar sobrecarga...")
             time.sleep(base_delay)
         
-        # Enviar request con reintentos hasta obtener respuesta
         start_time = time.time()
         result = send_request(question)
         end_time = time.time()
@@ -135,8 +122,6 @@ def main():
         if result:
             response_time = end_time - start_time
             results.append(result)
-            
-            # Contar cache hits vs LLM calls
             if result['source'] == 'cache':
                 cache_hits += 1
                 if i % 10 != 1:

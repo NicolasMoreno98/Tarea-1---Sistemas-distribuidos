@@ -4,24 +4,19 @@ import time
 import os
 import redis
 import psycopg2
-from flask import Flask, request, jsonify
+from flask import Flask, req        redis_client.setex(cache_key, 3600, json.dumps(result)), jsonify
 from bert_score import score
 import logging
 
-# Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# Configuración de Ollama (local)
-OLLAMA_URL = "http://host.docker.internal:11434"  # URL para acceder a Ollama desde Docker
-OLLAMA_MODEL = "tinyllama:latest"  # Modelo ultrarrápido disponible localmente
+OLLAMA_URL = "http://host.docker.internal:11434"
+OLLAMA_MODEL = "tinyllama:latest"
 
-# Configuración de Redis
 redis_client = redis.Redis(host='redis', port=6379, decode_responses=True)
-
-# Configuración de PostgreSQL
 def get_db_connection():
     return psycopg2.connect(
         host='postgres',
@@ -31,27 +26,27 @@ def get_db_connection():
     )
 
 def call_ollama_llm(question):
-    """Llama a Ollama local para generar respuesta - OPTIMIZADO ANTI-TIMEOUT"""
+    """Llama a Ollama local para generar respuesta"""
     try:
         payload = {
             "model": OLLAMA_MODEL,
-            "prompt": f"Answer briefly: {question}",  # Prompt más corto
+            "prompt": f"Answer briefly: {question}",
             "stream": False,
             "options": {
-                "num_ctx": 512,      # Contexto MUY reducido para velocidad
-                "num_gpu": 1.0,      # Usar toda la GPU para máxima velocidad
-                "temperature": 0.3,   # Balance velocidad/calidad
-                "top_p": 0.9,        # Limitar opciones para velocidad
-                "repeat_penalty": 1.0,  # Sin penalización por repetición
-                "num_predict": 100,   # Limitar tokens de respuesta
-                "stop": [".", "?", "!"]  # Parar en puntuación para respuestas cortas
+                "num_ctx": 512,
+                "num_gpu": 1.0,
+                "temperature": 0.3,
+                "top_p": 0.9,
+                "repeat_penalty": 1.0,
+                "num_predict": 100,
+                "stop": [".", "?", "!"]
             }
         }
         
         response = requests.post(
             f"{OLLAMA_URL}/api/generate",
             json=payload,
-            timeout=15  # Timeout ultra-agresivo para TinyLlama (debe responder en <5s)
+            timeout=15
         )
         
         if response.status_code == 200:
@@ -85,7 +80,6 @@ def process_question():
         question = data['question']
         best_answer = data['best_answer']
         
-        # Buscar en cache primero
         cache_key = f"question:{question_id}"
         cached_result = redis_client.get(cache_key)
         
@@ -93,8 +87,6 @@ def process_question():
             logger.info(f"Cache hit para pregunta {question_id}")
             result = json.loads(cached_result)
             result['source'] = 'cache'
-            
-            # Incrementar contador en BD
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
@@ -105,14 +97,12 @@ def process_question():
             
             return jsonify(result)
         
-        # Si no está en cache, llamar a Ollama
         logger.info(f"Cache miss para pregunta {question_id} - llamando a Ollama")
         llm_answer = call_ollama_llm(question)
         
         if llm_answer is None:
             return jsonify({'error': 'Error generando respuesta con Ollama'}), 500
         
-        # Calcular BERTScore
         bert_score = calculate_bertscore(llm_answer, best_answer)
         
         result = {
@@ -121,7 +111,6 @@ def process_question():
             'source': 'llm'
         }
         
-        # Guardar en cache (TTL de 1 hora)
         redis_client.setex(cache_key, 3600, json.dumps(result))
         
         # Guardar en base de datos
