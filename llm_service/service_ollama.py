@@ -4,7 +4,7 @@ import time
 import os
 import redis
 import psycopg2
-from flask import Flask, req        redis_client.setex(cache_key, 3600, json.dumps(result)), jsonify
+from flask import Flask, request, jsonify
 from bert_score import score
 import logging
 

@@ -273,11 +273,17 @@ Dataset: Yahoo Answers (745MB, 20,000 preguntas)
 
 ### Cumplimiento de Requisitos
 - Containerización: Docker Compose con 4 servicios
-- Cache distribuido: Redis con TTL y políticas de evicción
+- Cache distribuido: Redis con política LRU y TTL de 1 hora
 - Base de datos: PostgreSQL con persistencia
 - LLM Local: Ollama con TinyLlama
 - Evaluación: BERTScore para similaridad semántica
 - Escalabilidad: Arquitectura de microservicios
+
+### Configuración de Cache Redis
+- Política de evicción: LRU (Least Recently Used)
+- Memoria máxima: 2MB (aprox. 1000 consultas)  
+- TTL por clave: 3600 segundos (1 hora)
+- Persistencia: Habilitada con snapshots automáticos
 
 ## Soporte
 
